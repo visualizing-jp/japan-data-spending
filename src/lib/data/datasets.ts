@@ -11,74 +11,74 @@ export interface DatasetDef {
   query?: Record<string, string>;
 }
 
-/** 基礎データの件数コード（カンマ区切り、仕様上限100）。 */
-const COUNT_CODES = [
-  "H1100",
-  "H1101",
-  "H1102",
-  "H110202",
-  "H1310",
-  "H1320",
-  "H1321",
-  "H1322",
-  "H1323",
-  "H1401",
-  "H1402",
-  "H1403",
-  "H1404",
-  "H2130",
-  "H2101",
-  "H2102",
-  "H2103",
-  "H2104",
-  "H2105",
-  "H2106",
-  "H2107",
-  "H2108",
+/** 用途分類: 消費支出・L4・物語用 L5・エンゲル。 */
+const USE_CAT01 = [
+  "059",
+  "060",
+  "098",
+  "102",
+  "103",
+  "107",
+  "112",
+  "122",
+  "140",
+  "145",
+  "151",
+  "152",
+  "153",
+  "155",
+  "156",
+  "165",
+  "263",
 ].join(",");
 
-/** 社会生活統計指標の率コード。 */
-const RATE_CODES = [
-  "#H01301",
-  "#H01302",
-  "#H0130202",
-  "#H01401",
-  "#H01402",
-  "#H01403",
-  "#H01405",
+/** 属性ビュー用の年齢階級（重複合算の 34歳以下を除く）。 */
+const AGE_CODES = [
+  "A00",
+  "425",
+  "205",
+  "206",
+  "207",
+  "208",
+  "209",
+  "210",
+  "211",
+  "212",
+  "213",
+  "214",
+  "215",
+  "216",
+  "580",
+  "565",
+  "570",
 ].join(",");
 
 export const DATASETS = {
-  ssdsCount: {
-    key: "ssds-count",
-    statsDataId: "0000010108",
-    label: "社会・人口統計体系 基礎データ Ｈ居住（件数・延べ面積・畳数）",
-    query: { cdCat01: COUNT_CODES },
+  useTotal: {
+    key: "use-total",
+    statsDataId: "0002070003",
+    label: "家計調査 用途分類（総数）二人以上の世帯",
+    // 絞り込み後の実測件数（疎セルは API が返さない）
+    expectedCells: 1258,
+    query: {
+      cdCat01: USE_CAT01,
+      cdCat02: "01,03",
+      cdArea: "00000",
+    },
   },
 
-  ssdsRate: {
-    key: "ssds-rate",
-    statsDataId: "0000010208",
-    label: "社会・人口統計体系 社会生活統計指標 Ｈ居住（比率）",
-    query: { cdCat01: RATE_CODES },
-  },
-
-  vacant2013: {
-    key: "vacant-2013",
-    statsDataId: "0003095315",
-    label: "住宅・土地統計調査 2013 居住世帯の有無(9区分)",
-  },
-
-  vacant2018: {
-    key: "vacant-2018",
-    statsDataId: "0003326560",
-    label: "住宅・土地統計調査 2018 居住世帯の有無(9区分)",
-  },
-
-  vacant2023: {
-    key: "vacant-2023",
-    statsDataId: "0004015740",
-    label: "住宅・土地統計調査 2023 居住世帯の有無(9区分)",
+  useAge: {
+    key: "use-age",
+    statsDataId: "0002070011",
+    label: "家計調査 用途分類（世帯主の年齢階級別）二人以上の世帯",
+    // 絞り込み後の実測件数（若年など標本小で欠測あり）
+    expectedCells: 8806,
+    query: {
+      cdCat01: USE_CAT01,
+      cdCat02: "03",
+      cdCat03: AGE_CODES,
+      cdArea: "00000",
+    },
   },
 } as const satisfies Record<string, DatasetDef>;
 

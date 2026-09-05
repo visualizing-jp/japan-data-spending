@@ -11,35 +11,27 @@ import { Cube, round } from "../src/lib/transform/cube.ts";
 import { formatBytes } from "../src/lib/cache.ts";
 import type { DictEntry } from "../src/app/data/cube.ts";
 import {
-  FORM_CODES,
-  FORM_DIMS,
-  METRICS,
-  SURVEY_YEARS,
-  VACANT_CODE_MAP,
-  VACANT_YEARS,
-  type FormDim,
+  AGES,
+  ATTRS_YEAR_FROM,
+  CONSUMPTION_ESTAT,
+  ITEMS,
+  YEAR_FROM,
+  YEAR_TO,
+  householdEstat,
 } from "../src/lib/data/labels.ts";
 
 const OUT_DIR = resolve(import.meta.dirname, "../public/data");
 
-const PREF_AREAS = [
-  "00000",
-  ...Array.from({ length: 47 }, (_, i) => String(i + 1).padStart(2, "0") + "000"),
-];
+const YEARS = Array.from({ length: YEAR_TO - YEAR_FROM + 1 }, (_, i) =>
+  String(YEAR_FROM + i),
+);
+const ATTR_YEARS = Array.from(
+  { length: YEAR_TO - ATTRS_YEAR_FROM + 1 },
+  (_, i) => String(ATTRS_YEAR_FROM + i),
+);
 
-function timeCode(year: string): string {
-  // 社会・人口統計体系の調査年は「YYYY年度」→ YYYY100000
-  return `${year}100000`;
-}
-
-function shareOf(part: number | null, total: number | null): number | null {
-  if (part === null || total === null || total === 0) return null;
-  return round(part / total, 4);
-}
-
-function ratePctToFrac(v: number | null): number | null {
-  if (v === null) return null;
-  return round(v / 100, 4);
+function timeEstat(year: string): string {
+  return `${year}000000`;
 }
 
 async function writeJson(name: string, data: unknown): Promise<void> {
@@ -48,219 +40,156 @@ async function writeJson(name: string, data: unknown): Promise<void> {
   console.log(`  ${name}.json  ${formatBytes(Buffer.byteLength(json))}`);
 }
 
-function metricsDict(list = METRICS): DictEntry[] {
-  return list.map((m) => ({
-    code: m.code,
-    label: m.label,
-    level: 1,
-    parent: m.group,
-  }));
-}
-
-function getSsds(t: Table, code: string, area: string, year: string): number | null {
-  return t.get({
-    観測値: "00001",
-    "Ｈ　居住": code,
-    地域: area,
-    調査年: timeCode(year),
-  });
-}
-
-function vacantGet(t: Table, catCode: string, areaCode = "00000"): number | null {
-  const tab = [...t.axes.values()].find((a) => a.id === "tab")!;
-  const cat = [...t.axes.values()].find((a) => a.id === "cat01")!;
-  const area = [...t.axes.values()].find((a) => a.id === "area")!;
-  const time = [...t.axes.values()].find((a) => a.id === "time")!;
-  return t.get({
-    [tab.name]: tab.items[0]!["@code"],
-    [cat.name]: catCode,
-    [area.name]: areaCode,
-    [time.name]: time.items[0]!["@code"],
-  });
-}
-
-async function buildEra(counts: Table, rates: Table) {
-  const metrics = metricsDict();
-  const years = [...SURVEY_YEARS];
-  const metricCodes = METRICS.map((m) => m.code);
-
-  const cube = new Cube(
-    [
-      { name: "metric", codes: metricCodes },
-      { name: "year", codes: years },
-    ],
-    ["dwellings", "rate", "share"],
-  );
-
-  for (const year of years) {
-    const total = getSsds(counts, "H1100", "00000", year);
-    const occupied = getSsds(counts, "H1101", "00000", year);
-
-    for (const m of METRICS) {
-      let dwellings: number | null = null;
-      let rate: number | null = null;
-      let share: number | null = null;
-
-      if (m.kind === "area" && m.countCode) {
-        rate = getSsds(counts, m.countCode, "00000", year);
-      } else if (m.countCode) {
-        dwellings = getSsds(counts, m.countCode, "00000", year);
-        if (m.code === "total") share = 1;
-        else if (m.code === "vacant" || m.code === "occupied") share = shareOf(dwellings, total);
-        else share = shareOf(dwellings, occupied);
-      }
-
-      if (m.rateCode) {
-        rate = ratePctToFrac(getSsds(rates, m.rateCode, "00000", year));
-      }
-
-      cube.set("dwellings", [m.code, year], dwellings === null ? null : round(dwellings, 0));
-      cube.set("rate", [m.code, year], rate);
-      cube.set("share", [m.code, year], share);
-    }
-  }
-
-  await writeJson("era", { ...cube.toJSON(), metrics });
-}
-
-async function buildForm(counts: Table) {
-  const formDims = FORM_DIMS.map((d) => ({ code: d.id, label: d.label, level: 1 }));
-  const codes = FORM_CODES.map((c) => ({
-    code: c.code,
-    label: c.label,
-    level: c.level,
-    parent: c.dim,
-  }));
-
-  const dimIds = FORM_DIMS.map((d) => d.id);
-  const codeIds = FORM_CODES.map((c) => c.code);
-  const years = [...SURVEY_YEARS];
-
-  const cube = new Cube(
-    [
-      { name: "dim", codes: dimIds },
-      { name: "code", codes: codeIds },
-      { name: "year", codes: years },
-    ],
-    ["dwellings", "share"],
-  );
-
-  for (const year of years) {
-    const occupied = getSsds(counts, "H1101", "00000", year);
-
-    let sizeSum = 0;
-    let sizeAny = false;
-    for (const c of FORM_CODES.filter((x) => x.dim === "size")) {
-      const v = getSsds(counts, c.countCode!, "00000", year);
-      if (v !== null) {
-        sizeAny = true;
-        sizeSum += v;
-      }
-    }
-    const sizeDenom = sizeAny ? sizeSum : null;
-
-    const denomOf: Record<FormDim, number | null> = {
-      tenure: occupied,
-      building: occupied,
-      size: sizeDenom,
-      vacancy: null,
-    };
-
-    for (const c of FORM_CODES) {
-      if (c.dim === "vacancy") continue;
-      const dwellings = getSsds(counts, c.countCode!, "00000", year);
-      cube.set("dwellings", [c.dim, c.code, year], dwellings === null ? null : round(dwellings, 0));
-      cube.set("share", [c.dim, c.code, year], shareOf(dwellings, denomOf[c.dim]));
-    }
-  }
-
-  const vacantTables: Record<string, string> = {
-    "2013": "vacant-2013",
-    "2018": "vacant-2018",
-    "2023": "vacant-2023",
+function getYen(
+  t: Table,
+  catCode: string,
+  year: string,
+  hh: string,
+  ageCode?: string,
+): number | null {
+  const sel: Record<string, string> = {
+    表章項目: "01",
+    用途分類: catCode,
+    世帯区分: hh,
+    地域: "00000",
+    時間軸: timeEstat(year),
   };
-
-  for (const year of VACANT_YEARS) {
-    const t = await loadTable(vacantTables[year]!);
-    const map = VACANT_CODE_MAP[year]!;
-    const vacantTotal = vacantGet(t, map.vacant_total!);
-
-    for (const key of ["secondary", "for_rent", "for_sale", "other_vacant"] as const) {
-      const dwellings = vacantGet(t, map[key]!);
-      cube.set(
-        "dwellings",
-        ["vacancy", key, year],
-        dwellings === null ? null : round(dwellings, 0),
-      );
-      cube.set("share", ["vacancy", key, year], shareOf(dwellings, vacantTotal));
-    }
+  if (ageCode !== undefined) {
+    sel["年齢"] = ageCode;
   }
-
-  await writeJson("form", { ...cube.toJSON(), formDims, codes });
+  return t.get(sel);
 }
 
-async function buildGeo(counts: Table, rates: Table) {
-  const geoMetrics = METRICS.filter((m) => m.geo);
-  const metrics = metricsDict(geoMetrics);
-  const years = [...SURVEY_YEARS];
-  const metricCodes = geoMetrics.map((m) => m.code);
+function shareOf(part: number | null, total: number | null): number | null {
+  if (part === null || total === null || total === 0) return null;
+  return round(part / total, 4);
+}
 
-  const areaAxis = counts.axis("地域");
-  const areas: DictEntry[] = PREF_AREAS.map((code) => {
-    if (code === "00000") return { code, label: "全国", level: 0 };
-    const item = areaAxis.items.find((c) => c["@code"] === code);
-    return { code, label: item?.["@name"] ?? code, level: 1 };
-  });
+function pctToFrac(v: number | null): number | null {
+  if (v === null) return null;
+  return round(v / 100, 4);
+}
+
+async function buildEra(t: Table) {
+  const eraItems = ITEMS.filter((i) => i.era);
+  const items: DictEntry[] = eraItems.map((i) => ({
+    code: i.code,
+    label: i.label,
+    level: i.level,
+    parent: i.group,
+  }));
+  const codes = eraItems.map((i) => i.code);
 
   const cube = new Cube(
     [
-      { name: "metric", codes: metricCodes },
-      { name: "year", codes: years },
-      { name: "area", codes: [...PREF_AREAS] },
+      { name: "item", codes },
+      { name: "year", codes: YEARS },
     ],
-    ["value", "relative"],
+    ["yen", "share"],
   );
 
-  for (const year of years) {
-    for (const m of geoMetrics) {
-      const national =
-        m.kind === "area" && m.countCode
-          ? getSsds(counts, m.countCode, "00000", year)
-          : m.rateCode
-            ? ratePctToFrac(getSsds(rates, m.rateCode, "00000", year))
-            : null;
-
-      for (const area of PREF_AREAS) {
-        const value =
-          m.kind === "area" && m.countCode
-            ? getSsds(counts, m.countCode, area, year)
-            : m.rateCode
-              ? ratePctToFrac(getSsds(rates, m.rateCode, area, year))
-              : null;
-        const relative =
-          value !== null && national !== null && national !== 0
-            ? round(value / national, 4)
-            : null;
-        cube.set("value", [m.code, year, area], value);
-        cube.set("relative", [m.code, year, area], relative);
+  for (const year of YEARS) {
+    const y = Number(year);
+    const hh = householdEstat(y);
+    const total = getYen(t, CONSUMPTION_ESTAT, year, hh);
+    for (const item of eraItems) {
+      const raw = getYen(t, item.estat, year, hh);
+      if (item.kind === "engel") {
+        cube.set("yen", [item.code, year], null);
+        cube.set("share", [item.code, year], pctToFrac(raw));
+      } else {
+        cube.set("yen", [item.code, year], raw === null ? null : round(raw, 0));
+        cube.set("share", [item.code, year], shareOf(raw, total));
       }
     }
   }
 
-  await writeJson("geo", { ...cube.toJSON(), metrics, areas });
+  await writeJson("era", { ...cube.toJSON(), items });
+}
+
+async function buildItem(t: Table) {
+  const itemItems = ITEMS.filter((i) => i.item);
+  const items: DictEntry[] = itemItems.map((i) => ({
+    code: i.code,
+    label: i.label,
+    level: i.level,
+    parent: i.group,
+  }));
+  const codes = itemItems.map((i) => i.code);
+
+  const cube = new Cube(
+    [
+      { name: "item", codes },
+      { name: "year", codes: YEARS },
+    ],
+    ["yen", "share"],
+  );
+
+  for (const year of YEARS) {
+    const hh = householdEstat(Number(year));
+    const total = getYen(t, CONSUMPTION_ESTAT, year, hh);
+    for (const item of itemItems) {
+      const raw = getYen(t, item.estat, year, hh);
+      cube.set("yen", [item.code, year], raw === null ? null : round(raw, 0));
+      cube.set("share", [item.code, year], shareOf(raw, total));
+    }
+  }
+
+  await writeJson("item", { ...cube.toJSON(), items });
+}
+
+async function buildAttrs(t: Table) {
+  const attrItems = ITEMS.filter((i) => i.attrs);
+  const items: DictEntry[] = attrItems.map((i) => ({
+    code: i.code,
+    label: i.label,
+    level: i.level,
+    parent: i.group,
+  }));
+  const ages: DictEntry[] = AGES.map((a) => ({
+    code: a.code,
+    label: a.label,
+    level: a.group === "summary" ? 0 : 1,
+    parent: a.group,
+  }));
+
+  const cube = new Cube(
+    [
+      { name: "age", codes: AGES.map((a) => a.code) },
+      { name: "item", codes: attrItems.map((i) => i.code) },
+      { name: "year", codes: ATTR_YEARS },
+    ],
+    ["yen", "share"],
+  );
+
+  for (const age of AGES) {
+    for (const year of ATTR_YEARS) {
+      const total = getYen(t, CONSUMPTION_ESTAT, year, "03", age.estat);
+      for (const item of attrItems) {
+        const raw = getYen(t, item.estat, year, "03", age.estat);
+        cube.set(
+          "yen",
+          [age.code, item.code, year],
+          raw === null ? null : round(raw, 0),
+        );
+        cube.set("share", [age.code, item.code, year], shareOf(raw, total));
+      }
+    }
+  }
+
+  await writeJson("attrs", { ...cube.toJSON(), ages, items });
 }
 
 async function main() {
   await mkdir(OUT_DIR, { recursive: true });
-  console.log("load tables...");
-  const counts = await loadTable("ssds-count");
-  const rates = await loadTable("ssds-rate");
-  console.log("build era...");
-  await buildEra(counts, rates);
-  console.log("build form...");
-  await buildForm(counts);
-  console.log("build geo...");
-  await buildGeo(counts, rates);
+  console.log("loading raw tables…");
+  const total = await loadTable("use-total");
+  const age = await loadTable("use-age");
+
+  console.log("building cubes…");
+  await buildEra(total);
+  await buildItem(total);
+  await buildAttrs(age);
   console.log("done");
 }
 

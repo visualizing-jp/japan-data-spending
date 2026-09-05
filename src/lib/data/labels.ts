@@ -1,198 +1,211 @@
 /**
- * 住宅指標・形態カテゴリの表示定義。
+ * 配信コードと e-Stat 用途分類・年齢コードの対応。
  */
 
-export type MetricKind = "count" | "rate" | "area";
-export type FormDim = "tenure" | "building" | "size" | "vacancy";
-
-export interface MetricDef {
+export interface ItemDef {
   code: string;
   label: string;
-  /** 時代リストのグループ表示用。 */
-  group: string;
-  kind: MetricKind;
-  /** 基礎データ側の件数／面積コード。 */
-  countCode?: string;
-  /** 社会生活統計指標側の率コード。 */
-  rateCode?: string;
-  /** 地域ビューに載せるか。 */
-  geo: boolean;
-}
-
-export interface FormCodeDef {
-  code: string;
-  label: string;
-  dim: FormDim;
-  /** SSDS 件数コード（vacancy 以外）。 */
-  countCode?: string;
+  /** e-Stat 用途分類コード */
+  estat: string;
   level: number;
+  group?: string;
+  /** 時代ビューの左リスト */
+  era?: boolean;
+  /** 費目ビュー（L4 構成） */
+  item?: boolean;
+  /** 属性ビューで選択可能な費目 */
+  attrs?: boolean;
+  /** エンゲル係数など、構成比を金額から作らない */
+  kind?: "yen" | "engel";
 }
 
-/** 時代・地域の指標。 */
-export const METRICS: readonly MetricDef[] = [
-  {
-    code: "total",
-    label: "総住宅数",
-    group: "ストック",
-    kind: "count",
-    countCode: "H1100",
-    geo: false,
-  },
-  {
-    code: "occupied",
-    label: "居住世帯あり",
-    group: "ストック",
-    kind: "count",
-    countCode: "H1101",
-    geo: false,
-  },
-  {
-    code: "vacant",
-    label: "空き家",
-    group: "空き家",
-    kind: "count",
-    countCode: "H110202",
-    rateCode: "#H01405",
-    geo: true,
-  },
-  {
-    code: "owned",
-    label: "持ち家",
-    group: "所有",
-    kind: "count",
-    countCode: "H1310",
-    rateCode: "#H01301",
-    geo: true,
-  },
-  {
-    code: "rented",
-    label: "借家",
-    group: "所有",
-    kind: "count",
-    countCode: "H1320",
-    rateCode: "#H01302",
-    geo: true,
-  },
-  {
-    code: "rented_private",
-    label: "民営借家",
-    group: "所有",
-    kind: "count",
-    countCode: "H1322",
-    rateCode: "#H0130202",
-    geo: true,
-  },
-  {
-    code: "detached",
-    label: "一戸建",
-    group: "建て方",
-    kind: "count",
-    countCode: "H1401",
-    rateCode: "#H01401",
-    geo: true,
-  },
-  {
-    code: "row",
-    label: "長屋建",
-    group: "建て方",
-    kind: "count",
-    countCode: "H1402",
-    rateCode: "#H01402",
-    geo: true,
-  },
-  {
-    code: "apartment",
-    label: "共同住宅",
-    group: "建て方",
-    kind: "count",
-    countCode: "H1403",
-    rateCode: "#H01403",
-    geo: true,
-  },
-  {
-    code: "floor_area",
-    label: "1住宅当たり延べ面積",
-    group: "広さ",
-    kind: "area",
-    countCode: "H2130",
-    geo: true,
-  },
-] as const;
+export const CONSUMPTION_ESTAT = "059";
 
-/** 形態ビューのカテゴリ（所有・建て方・畳数）。空き家種類は別途年次表。 */
-export const FORM_CODES: readonly FormCodeDef[] = [
-  { code: "owned", label: "持ち家", dim: "tenure", countCode: "H1310", level: 1 },
-  { code: "rented_public", label: "公営・UR・公社", dim: "tenure", countCode: "H1321", level: 1 },
-  { code: "rented_private", label: "民営借家", dim: "tenure", countCode: "H1322", level: 1 },
-  { code: "rented_issued", label: "給与住宅", dim: "tenure", countCode: "H1323", level: 1 },
-
-  { code: "detached", label: "一戸建", dim: "building", countCode: "H1401", level: 1 },
-  { code: "row", label: "長屋建", dim: "building", countCode: "H1402", level: 1 },
-  { code: "apartment", label: "共同住宅", dim: "building", countCode: "H1403", level: 1 },
-  { code: "other_build", label: "その他", dim: "building", countCode: "H1404", level: 1 },
-
-  { code: "tatami_lt6", label: "5.9畳以下", dim: "size", countCode: "H2101", level: 1 },
-  { code: "tatami_6_12", label: "6.0–11.9畳", dim: "size", countCode: "H2102", level: 1 },
-  { code: "tatami_12_18", label: "12.0–17.9畳", dim: "size", countCode: "H2103", level: 1 },
-  { code: "tatami_18_24", label: "18.0–23.9畳", dim: "size", countCode: "H2104", level: 1 },
-  { code: "tatami_24_30", label: "24.0–29.9畳", dim: "size", countCode: "H2105", level: 1 },
-  { code: "tatami_30_36", label: "30.0–35.9畳", dim: "size", countCode: "H2106", level: 1 },
-  { code: "tatami_36_48", label: "36.0–47.9畳", dim: "size", countCode: "H2107", level: 1 },
-  { code: "tatami_48p", label: "48.0畳以上", dim: "size", countCode: "H2108", level: 1 },
-
-  { code: "secondary", label: "二次的住宅", dim: "vacancy", level: 1 },
-  { code: "for_rent", label: "賃貸用", dim: "vacancy", level: 1 },
-  { code: "for_sale", label: "売却用", dim: "vacancy", level: 1 },
-  { code: "other_vacant", label: "その他の空き家", dim: "vacancy", level: 1 },
-] as const;
-
-export const FORM_DIMS: readonly { id: FormDim; label: string }[] = [
-  { id: "tenure", label: "所有" },
-  { id: "building", label: "建て方" },
-  { id: "size", label: "広さ" },
-  { id: "vacancy", label: "空き家" },
-] as const;
-
-/** 空き家種類：年次表ごとの生コード → 正規化コード。 */
-export const VACANT_CODE_MAP: Record<
-  string,
-  Partial<Record<"secondary" | "for_rent" | "for_sale" | "other_vacant" | "vacant_total", string>>
-> = {
-  "2013": {
-    vacant_total: "00008",
-    secondary: "00009",
-    for_rent: "00012",
-    for_sale: "00013",
-    other_vacant: "00014",
+/** 物語の核＋十大費目。L4 は構成比合計用、L5 は時代の掘り下げ。 */
+export const ITEMS: ItemDef[] = [
+  {
+    code: "food",
+    label: "食料",
+    estat: "060",
+    level: 1,
+    group: "生活基盤",
+    era: true,
+    item: true,
+    attrs: true,
   },
-  "2018": {
-    vacant_total: "22",
-    secondary: "221",
-    for_rent: "222",
-    for_sale: "223",
-    other_vacant: "224",
+  {
+    code: "eating_out",
+    label: "外食",
+    estat: "098",
+    level: 2,
+    group: "生活基盤",
+    era: true,
   },
-  // 2023 は二次的とその他のコード意味が入れ替わっている（docs/data-sources.md）
-  "2023": {
-    vacant_total: "22",
-    secondary: "224",
-    for_rent: "222",
-    for_sale: "223",
-    other_vacant: "221",
+  {
+    code: "housing",
+    label: "住居",
+    estat: "102",
+    level: 1,
+    group: "生活基盤",
+    era: true,
+    item: true,
+    attrs: true,
   },
-};
+  {
+    code: "rent",
+    label: "家賃地代",
+    estat: "103",
+    level: 2,
+    group: "生活基盤",
+    era: true,
+  },
+  {
+    code: "utilities",
+    label: "光熱・水道",
+    estat: "107",
+    level: 1,
+    group: "生活基盤",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "furniture",
+    label: "家具・家事用品",
+    estat: "112",
+    level: 1,
+    group: "生活基盤",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "clothing",
+    label: "被服及び履物",
+    estat: "122",
+    level: 1,
+    group: "生活基盤",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "health",
+    label: "保健医療",
+    estat: "140",
+    level: 1,
+    group: "サービス",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "transport_comm",
+    label: "交通・通信",
+    estat: "145",
+    level: 1,
+    group: "サービス",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "telecom",
+    label: "通信",
+    estat: "151",
+    level: 2,
+    group: "サービス",
+    era: true,
+  },
+  {
+    code: "education",
+    label: "教育",
+    estat: "152",
+    level: 1,
+    group: "サービス",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "tuition",
+    label: "授業料等",
+    estat: "153",
+    level: 2,
+    group: "サービス",
+    era: true,
+  },
+  {
+    code: "cram",
+    label: "補習教育",
+    estat: "155",
+    level: 2,
+    group: "サービス",
+    era: true,
+  },
+  {
+    code: "culture",
+    label: "教養娯楽",
+    estat: "156",
+    level: 1,
+    group: "サービス",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "other",
+    label: "その他の消費支出",
+    estat: "165",
+    level: 1,
+    group: "その他",
+    era: true,
+    item: true,
+    attrs: true,
+  },
+  {
+    code: "engel",
+    label: "エンゲル係数",
+    estat: "263",
+    level: 1,
+    group: "指標",
+    era: true,
+    kind: "engel",
+  },
+];
 
-export const SURVEY_YEARS = [
-  "1978",
-  "1983",
-  "1988",
-  "1993",
-  "1998",
-  "2003",
-  "2008",
-  "2013",
-  "2018",
-  "2023",
-] as const;
+export interface AgeDef {
+  code: string;
+  label: string;
+  estat: string;
+  group: "summary" | "band";
+}
 
-export const VACANT_YEARS = ["2013", "2018", "2023"] as const;
+export const AGES: AgeDef[] = [
+  { code: "avg", label: "平均", estat: "A00", group: "summary" },
+  { code: "65plus", label: "65歳以上", estat: "565", group: "summary" },
+  { code: "70plus", label: "70歳以上", estat: "570", group: "summary" },
+  { code: "u24", label: "24歳以下", estat: "425", group: "band" },
+  { code: "a25", label: "25～29歳", estat: "205", group: "band" },
+  { code: "a30", label: "30～34歳", estat: "206", group: "band" },
+  { code: "a35", label: "35～39歳", estat: "207", group: "band" },
+  { code: "a40", label: "40～44歳", estat: "208", group: "band" },
+  { code: "a45", label: "45～49歳", estat: "209", group: "band" },
+  { code: "a50", label: "50～54歳", estat: "210", group: "band" },
+  { code: "a55", label: "55～59歳", estat: "211", group: "band" },
+  { code: "a60", label: "60～64歳", estat: "212", group: "band" },
+  { code: "a65", label: "65～69歳", estat: "213", group: "band" },
+  { code: "a70", label: "70～74歳", estat: "214", group: "band" },
+  { code: "a75", label: "75～79歳", estat: "215", group: "band" },
+  { code: "a80", label: "80～84歳", estat: "216", group: "band" },
+  { code: "a85", label: "85歳以上", estat: "580", group: "band" },
+];
+
+/** 時代ビュー: 1985–1999 は農林漁家除く、2000– は二人以上総数。 */
+export const YEAR_FROM = 1985;
+export const YEAR_TO = 2025;
+export const ATTRS_YEAR_FROM = 2000;
+
+export function householdEstat(year: number): string {
+  return year < 2000 ? "01" : "03";
+}

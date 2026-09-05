@@ -1,17 +1,13 @@
 /**
- * 指標・形態カテゴリのヘルパ。
+ * 費目・年齢辞書のヘルパ。
  */
 
 import type { DictEntry } from "./cube.ts";
 
-export function listMetrics(items: DictEntry[]): DictEntry[] {
+export function listItems(items: DictEntry[]): DictEntry[] {
   return items;
 }
 
-export function codesForDim(items: DictEntry[], dim: string): DictEntry[] {
-  return items.filter((d) => d.parent === dim);
-}
-
-export function geoMetrics(items: DictEntry[]): DictEntry[] {
-  return items;
+export function listAges(ages: DictEntry[]): DictEntry[] {
+  return ages;
 }

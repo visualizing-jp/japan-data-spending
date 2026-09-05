@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "日本人は何にお金を使ってきたか — 家計調査から家計構造の変化を探索するダッシュボード（準備中）",
+  "description": "日本人は何にお金を使ってきたか — 家計調査から家計構造の変化を探索するダッシュボード",
   "license": "MIT",
   "engines": {
     "node": ">=22.18"

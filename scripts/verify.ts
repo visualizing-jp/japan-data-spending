@@ -17,84 +17,87 @@ function ok(label: string, cond: boolean, detail = ""): void {
   if (!cond) failed += 1;
 }
 
-function near(a: number, b: number, tol: number): boolean {
-  return Math.abs(a - b) <= tol;
-}
-
 interface EraFile extends CubeJson {
-  metrics: DictEntry[];
+  items: DictEntry[];
 }
 
-interface FormFile extends CubeJson {
-  formDims: DictEntry[];
-  codes: DictEntry[];
+interface ItemFile extends CubeJson {
+  items: DictEntry[];
 }
 
-interface GeoFile extends CubeJson {
-  metrics: DictEntry[];
-  areas: DictEntry[];
+interface AttrsFile extends CubeJson {
+  ages: DictEntry[];
+  items: DictEntry[];
 }
 
 const eraRaw = JSON.parse(await readFile(resolve(DATA, "era.json"), "utf8")) as EraFile;
-const formRaw = JSON.parse(await readFile(resolve(DATA, "form.json"), "utf8")) as FormFile;
-const geoRaw = JSON.parse(await readFile(resolve(DATA, "geo.json"), "utf8")) as GeoFile;
+const itemRaw = JSON.parse(await readFile(resolve(DATA, "item.json"), "utf8")) as ItemFile;
+const attrsRaw = JSON.parse(await readFile(resolve(DATA, "attrs.json"), "utf8")) as AttrsFile;
 
 const era = new CubeView(eraRaw);
-const form = new CubeView(formRaw);
-const geo = new CubeView(geoRaw);
+const item = new CubeView(itemRaw);
+const attrs = new CubeView(attrsRaw);
 
-const total2023 = era.at("dwellings", { metric: "total", year: "2023" });
+const clothing1985 = era.at("yen", { item: "clothing", year: "1985" });
+const clothing2025 = era.at("yen", { item: "clothing", year: "2025" });
 ok(
-  "era 2023 総住宅数が妥当",
-  total2023 !== null && total2023 > 60_000_000 && total2023 < 70_000_000,
-  String(total2023),
+  "era 被服の月平均が長期で減少",
+  clothing1985 !== null && clothing2025 !== null && clothing2025 < clothing1985,
+  `${clothing1985} → ${clothing2025} 円`,
 );
 
-const vacantRate2023 = era.at("rate", { metric: "vacant", year: "2023" });
+const telecom1985 = era.at("yen", { item: "telecom", year: "1985" });
+const telecom2025 = era.at("yen", { item: "telecom", year: "2025" });
 ok(
-  "era 2023 空き家率≈13.8%",
-  vacantRate2023 !== null && near(vacantRate2023, 0.138, 0.005),
-  String(vacantRate2023),
+  "era 通信の月平均が長期で増加",
+  telecom1985 !== null && telecom2025 !== null && telecom2025 > telecom1985,
+  `${telecom1985} → ${telecom2025} 円`,
 );
 
-const ownedRate2023 = era.at("rate", { metric: "owned", year: "2023" });
+const engel2000 = era.at("share", { item: "engel", year: "2000" });
+const engel2025 = era.at("share", { item: "engel", year: "2025" });
 ok(
-  "era 2023 持ち家比率≈60.9%",
-  ownedRate2023 !== null && near(ownedRate2023, 0.609, 0.01),
-  String(ownedRate2023),
+  "era エンゲル係数が 2000→2025 で上昇方向",
+  engel2000 !== null && engel2025 !== null && engel2025 > engel2000,
+  `${engel2000} → ${engel2025}`,
 );
 
-const vacant1978 = era.at("rate", { metric: "vacant", year: "1978" });
-ok(
-  "era 空き家率が上昇 (1978→2023)",
-  vacant1978 !== null && vacantRate2023 !== null && vacantRate2023 > vacant1978,
-  `${vacant1978} → ${vacantRate2023}`,
-);
-
-const tenureSum = ["owned", "rented_public", "rented_private", "rented_issued"].reduce(
-  (n, code) => n + (form.at("share", { dim: "tenure", code, year: "2023" }) ?? 0),
+const shareSum2025 = itemRaw.items.reduce(
+  (n, it) => n + (item.at("share", { item: it.code, year: "2025" }) ?? 0),
   0,
 );
-ok("form 2023 所有 share 合計≈1", near(tenureSum, 1, 0.05), String(tenureSum));
-
-const vacantShareSum = ["secondary", "for_rent", "for_sale", "other_vacant"].reduce(
-  (n, code) => n + (form.at("share", { dim: "vacancy", code, year: "2023" }) ?? 0),
-  0,
-);
-ok("form 2023 空き家種類 share 合計≈1", near(vacantShareSum, 1, 0.05), String(vacantShareSum));
-
-ok("geo 都道府県が47+全国", geoRaw.areas.length === 48, String(geoRaw.areas.length));
-
-const tokyoVacant = geo.at("value", { metric: "vacant", year: "2023", area: "13000" });
-const nationalVacant = geo.at("value", { metric: "vacant", year: "2023", area: "00000" });
 ok(
-  "geo 東京の空き家率が全国と異なる",
-  tokyoVacant !== null && nationalVacant !== null && tokyoVacant !== nationalVacant,
-  `東京 ${tokyoVacant} / 全国 ${nationalVacant}`,
+  "item 2025 L4 構成比合計がおおむね 1",
+  shareSum2025 > 0.98 && shareSum2025 < 1.02,
+  String(shareSum2025),
 );
 
-const relNat = geo.at("relative", { metric: "vacant", year: "2023", area: "00000" });
-ok("geo 全国 relative=1", relNat === 1, String(relNat));
+const foodShare1985 = item.at("share", { item: "food", year: "1985" });
+const foodShare2025 = item.at("share", { item: "food", year: "2025" });
+ok(
+  "item 食料シェアが取得できている",
+  foodShare1985 !== null && foodShare2025 !== null && foodShare1985 > 0.15,
+  `${foodShare1985} → ${foodShare2025}`,
+);
+
+const edu40 = attrs.at("yen", { age: "a40", item: "education", year: "2025" });
+const edu65 = attrs.at("yen", { age: "a65", item: "education", year: "2025" });
+ok(
+  "attrs 教育は 40代の方が 65–69歳より大きい",
+  edu40 !== null && edu65 !== null && edu40 > edu65,
+  `40–44 ${edu40} / 65–69 ${edu65}`,
+);
+
+const health65 = attrs.at("yen", { age: "a65", item: "health", year: "2025" });
+const health35 = attrs.at("yen", { age: "a35", item: "health", year: "2025" });
+ok(
+  "attrs 保健医療は高齢層の方が大きい方向",
+  health65 !== null && health35 !== null && health65 > health35,
+  `65–69 ${health65} / 35–39 ${health35}`,
+);
+
+ok("era items が空でない", eraRaw.items.length >= 12, String(eraRaw.items.length));
+ok("attrs ages が空でない", attrsRaw.ages.length >= 10, String(attrsRaw.ages.length));
 
 if (failed > 0) {
   console.error(`\n${failed} checks failed`);

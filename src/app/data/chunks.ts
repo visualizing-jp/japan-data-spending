@@ -5,23 +5,22 @@
 import { CubeView, type CubeJson, type DictEntry } from "./cube.ts";
 
 export interface EraData {
-  metrics: DictEntry[];
+  items: DictEntry[];
   cube: CubeView;
   years: number[];
 }
 
-export interface FormData {
-  formDims: DictEntry[];
-  codes: DictEntry[];
+export interface ItemData {
+  items: DictEntry[];
   cube: CubeView;
   years: string[];
 }
 
-export interface GeoData {
-  metrics: DictEntry[];
-  areas: DictEntry[];
+export interface AttrsData {
+  ages: DictEntry[];
+  items: DictEntry[];
   cube: CubeView;
-  years: string[];
+  years: number[];
 }
 
 const cache = new Map<string, Promise<unknown>>();
@@ -40,33 +39,29 @@ function chunk<Raw, T>(name: string, transform: (raw: Raw) => T): Promise<T> {
 }
 
 export function loadEra(): Promise<EraData> {
-  return chunk<CubeJson & { metrics: DictEntry[] }, EraData>("era", (raw) => ({
-    metrics: raw.metrics,
+  return chunk<CubeJson & { items: DictEntry[] }, EraData>("era", (raw) => ({
+    items: raw.items,
     cube: new CubeView(raw),
     years: raw.dims.find((d) => d.name === "year")!.codes.map(Number),
   }));
 }
 
-export function loadForm(): Promise<FormData> {
-  return chunk<CubeJson & { formDims: DictEntry[]; codes: DictEntry[] }, FormData>(
-    "form",
-    (raw) => ({
-      formDims: raw.formDims,
-      codes: raw.codes,
-      cube: new CubeView(raw),
-      years: [...raw.dims.find((d) => d.name === "year")!.codes].reverse(),
-    }),
-  );
+export function loadItem(): Promise<ItemData> {
+  return chunk<CubeJson & { items: DictEntry[] }, ItemData>("item", (raw) => ({
+    items: raw.items,
+    cube: new CubeView(raw),
+    years: [...raw.dims.find((d) => d.name === "year")!.codes].reverse(),
+  }));
 }
 
-export function loadGeo(): Promise<GeoData> {
-  return chunk<CubeJson & { metrics: DictEntry[]; areas: DictEntry[] }, GeoData>(
-    "geo",
-    (raw) => ({
-      metrics: raw.metrics,
-      areas: raw.areas,
-      cube: new CubeView(raw),
-      years: [...raw.dims.find((d) => d.name === "year")!.codes].reverse(),
-    }),
-  );
+export function loadAttrs(): Promise<AttrsData> {
+  return chunk<
+    CubeJson & { ages: DictEntry[]; items: DictEntry[] },
+    AttrsData
+  >("attrs", (raw) => ({
+    ages: raw.ages,
+    items: raw.items,
+    cube: new CubeView(raw),
+    years: raw.dims.find((d) => d.name === "year")!.codes.map(Number),
+  }));
 }

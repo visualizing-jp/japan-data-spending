@@ -1,16 +1,20 @@
+import { Suspense } from "react";
+import { EraView } from "./views/EraView.tsx";
+import { ItemView } from "./views/ItemView.tsx";
+import { AttrsView } from "./views/AttrsView.tsx";
 import { useUrlState } from "./hooks/useUrlState.ts";
 
 const VIEWS = [
-  { id: "era", label: "時代", hint: "", ready: false },
-  { id: "structure", label: "構造", hint: "", ready: false },
-  { id: "geo", label: "地域", hint: "", ready: false },
+  { id: "era", label: "時代", hint: "1985–2025", ready: true },
+  { id: "item", label: "費目", hint: "十大費目", ready: true },
+  { id: "attrs", label: "属性", hint: "世帯主年齢", ready: true },
 ] as const;
 
 type ViewId = (typeof VIEWS)[number]["id"];
 
 export function App() {
   const [view, setView] = useUrlState<ViewId>("view", "era", (v) =>
-    VIEWS.some((x) => x.id === v),
+    VIEWS.some((x) => x.id === v && x.ready),
   );
 
   return (
@@ -21,9 +25,7 @@ export function App() {
             <h1 className="text-[15px] font-semibold tracking-tight">
               日本人は何にお金を使ってきたか
             </h1>
-            <p className="text-[11px] text-muted">
-              家計調査
-            </p>
+            <p className="text-[11px] text-muted">総務省「家計調査」</p>
           </div>
           <nav className="flex gap-1 -mb-px" aria-label="ビュー">
             {VIEWS.map((v) => (
@@ -49,15 +51,15 @@ export function App() {
         </div>
       </header>
 
-<main className="mx-auto w-full max-w-[1240px] px-6 py-16">
-  <p className="text-[13px] text-muted">このテーマは準備中です。</p>
-  <p className="mt-2 text-[12px] text-faint">
-    主な統計: 家計調査 ／ 可視化の核: 食費、住居、教育、通信、娯楽など家計構造の変化
-  </p>
-</main>
+      <Suspense key={view} fallback={<Loading />}>
+        {view === "era" && <EraView />}
+        {view === "item" && <ItemView />}
+        {view === "attrs" && <AttrsView />}
+      </Suspense>
 
       <footer className="mx-auto w-full max-w-[1240px] px-6 pt-2 pb-10 text-[11px] leading-relaxed text-faint">
-        出典: 家計調査（詳細は docs/data-sources.md。表IDは調査後に確定）。
+        出典: 総務省「家計調査」家計収支編・二人以上の世帯・用途分類（e-Stat）。
+        単位は世帯あたり月平均（円・名目）と消費支出に占める構成比。2000年に農林漁家世帯を含む定義へ切替。
         <a
           href="https://visualizing.jp/"
           className="mt-2 block w-fit transition-colors duration-150 hover:text-muted"
@@ -65,6 +67,14 @@ export function App() {
           visualizing.jp
         </a>
       </footer>
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="mx-auto w-full max-w-[1240px] px-6 py-16 text-[12px] text-faint">
+      読み込み中
     </div>
   );
 }
